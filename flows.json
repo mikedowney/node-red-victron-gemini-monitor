@@ -1,0 +1,317 @@
+[
+    {
+        "id": "63aa32f483d4a9f4",
+        "type": "inject",
+        "z": "571d1030f6c6a086",
+        "name": "Daily 6 AM Trigger",
+        "props": [],
+        "repeat": "",
+        "crontab": "00 06 * * *",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "x": 130,
+        "y": 100,
+        "wires": [
+            [
+                "f095656ee6e38191"
+            ]
+        ]
+    },
+    {
+        "id": "f095656ee6e38191",
+        "type": "http request",
+        "z": "571d1030f6c6a086",
+        "name": "1. Fetch Diagnostics",
+        "method": "GET",
+        "ret": "obj",
+        "paytoqs": "ignore",
+        "url": "https://vrmapi.victronenergy.com/v2/installations/YOUR_INSTALLATION_ID/diagnostics",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "insecureHTTPParser": false,
+        "authType": "",
+        "senderr": false,
+        "headers": [
+            {
+                "keyType": "other",
+                "keyValue": "X-Authorization",
+                "valueType": "other",
+                "valueValue": "Token YOUR_VICTRON_TOKEN_HERE"
+            }
+        ],
+        "x": 380,
+        "y": 100,
+        "wires": [
+            [
+                "43ecf1d763f041d2"
+            ]
+        ]
+    },
+    {
+        "id": "43ecf1d763f041d2",
+        "type": "change",
+        "z": "571d1030f6c6a086",
+        "name": "Set Topic & Pack",
+        "rules": [
+            {
+                "t": "set",
+                "p": "diagnostics",
+                "pt": "flow",
+                "to": "payload",
+                "tot": "msg"
+            }
+        ],
+        "action": "",
+        "property": "",
+        "from": "",
+        "to": "",
+        "reg": false,
+        "x": 590,
+        "y": 100,
+        "wires": [
+            [
+                "25b5e9bc921cf1dc"
+            ]
+        ]
+    },
+    {
+        "id": "25b5e9bc921cf1dc",
+        "type": "http request",
+        "z": "571d1030f6c6a086",
+        "name": "2. Fetch 24H Stats",
+        "method": "GET",
+        "ret": "obj",
+        "paytoqs": "ignore",
+        "url": "https://vrmapi.victronenergy.com/v2/installations/YOUR_INSTALLATION_ID/stats?attributeCodes[]=Pdc&attributeCodes[]=bs&attributeCodes[]=bv&attributeCodes[]=total_solar_yield&attributeCodes[]=total_consumption&attributeCodes[]=grid_history_from",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "insecureHTTPParser": false,
+        "authType": "",
+        "senderr": false,
+        "headers": [
+            {
+                "keyType": "other",
+                "keyValue": "X-Authorization",
+                "valueType": "other",
+                "valueValue": "Token YOUR_VICTRON_TOKEN_HERE"
+            }
+        ],
+        "x": 370,
+        "y": 160,
+        "wires": [
+            [
+                "ba420315b407cf5c"
+            ]
+        ]
+    },
+    {
+        "id": "ba420315b407cf5c",
+        "type": "change",
+        "z": "571d1030f6c6a086",
+        "name": "Set Topic & Pack",
+        "rules": [
+            {
+                "t": "set",
+                "p": "stats",
+                "pt": "flow",
+                "to": "payload",
+                "tot": "msg"
+            }
+        ],
+        "action": "",
+        "property": "",
+        "from": "",
+        "to": "",
+        "reg": false,
+        "x": 590,
+        "y": 160,
+        "wires": [
+            [
+                "608c0c349b673164"
+            ]
+        ]
+    },
+    {
+        "id": "608c0c349b673164",
+        "type": "http request",
+        "z": "571d1030f6c6a086",
+        "name": "3. Fetch Alarm Settings",
+        "method": "GET",
+        "ret": "obj",
+        "paytoqs": "ignore",
+        "url": "https://vrmapi.victronenergy.com/v2/installations/YOUR_INSTALLATION_ID/alarms",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "insecureHTTPParser": false,
+        "authType": "",
+        "senderr": false,
+        "headers": [
+            {
+                "keyType": "other",
+                "keyValue": "X-Authorization",
+                "valueType": "other",
+                "valueValue": "Token YOUR_VICTRON_TOKEN_HERE"
+            }
+        ],
+        "x": 390,
+        "y": 220,
+        "wires": [
+            [
+                "747cdac55b51c710"
+            ]
+        ]
+    },
+    {
+        "id": "747cdac55b51c710",
+        "type": "function",
+        "z": "571d1030f6c6a086",
+        "name": "Build Comprehensive Prompt",
+        "func": "const diagnosticsData = flow.get(\"diagnostics\") || {};\nconst statsData = flow.get(\"stats\") || {};\nconst alarmsData = msg.payload || {};\n\nconst now = new Date();\nconst currentDateTimeStr = now.toLocaleString('en-US', { timeZone: 'America/Los_Angeles', weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', timeZoneName: 'short' });\n\nconst systemPrompt = `You are the chief engineer and safety officer on a marine vessel. Analyze the following bundled multi-source Victron operational logs for any anomalies or safety related issues.\n\nReporting Rules:\n- Current Time Anchor: The current system time is ${currentDateTimeStr}.\n- CRITICAL: If all current parameters are operating within normal system tolerances, do NOT write any sections, breakdowns, summaries, or introductory text. You must output the single word NOMINAL and absolutely nothing else.\n\n=========================================\nDATASET 1: diagnostics.json\n=========================================\n${JSON.stringify(diagnosticsData)}\n\n=========================================\nDATASET 2: stats.json (24-Hour Time Series Trends)\n=========================================\n${JSON.stringify(statsData)}\n\n=========================================\nDATASET 3: alarms.json (Configured Alarm Settings)\n=========================================\n${JSON.stringify(alarmsData)}`;\n\nmsg.url = \"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=YOUR_API_KEY_HERE\";\nmsg.headers = {\n    \"Content-Type\": \"application/json\"\n};\nmsg.payload = {\n    \"contents\": [{\n        \"parts\": [{\n            \"text\": systemPrompt\n        }]\n    }]\n};\n\nreturn msg;",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 660,
+        "y": 220,
+        "wires": [
+            [
+                "c01c2732deea50b6"
+            ]
+        ]
+    },
+    {
+        "id": "c01c2732deea50b6",
+        "type": "http request",
+        "z": "571d1030f6c6a086",
+        "name": "Gemini AI Engine",
+        "method": "POST",
+        "ret": "obj",
+        "paytoqs": "ignore",
+        "url": "",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "insecureHTTPParser": false,
+        "authType": "",
+        "senderr": false,
+        "headers": [],
+        "x": 910,
+        "y": 220,
+        "wires": [
+            [
+                "e1a3c5d54fa9118f",
+                "e38fa6710d60ef24"
+            ]
+        ]
+    },
+    {
+        "id": "onboard_email_node",
+        "type": "e-mail",
+        "z": "571d1030f6c6a086",
+        "server": "smtp.gmail.com",
+        "port": "465",
+        "authtype": "BASIC",
+        "saslformat": false,
+        "token": "oauth2Response.access_token",
+        "secure": true,
+        "tls": true,
+        "name": "your-email@gmail.com",
+        "dname": "Email Sender",
+        "x": 1560,
+        "y": 220,
+        "wires": []
+    },
+    {
+        "id": "e1a3c5d54fa9118f",
+        "type": "debug",
+        "z": "571d1030f6c6a086",
+        "name": "AI Analysis Results",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 1150,
+        "y": 280,
+        "wires": []
+    },
+    {
+        "id": "e38fa6710d60ef24",
+        "type": "switch",
+        "z": "571d1030f6c6a086",
+        "name": "Filter Output",
+        "property": "payload.candidates[0].content.parts[0].text",
+        "propertyType": "msg",
+        "rules": [
+            {
+                "t": "regex",
+                "v": "^\\s*NOMINAL\\s*$",
+                "vt": "str",
+                "case": true
+            },
+            {
+                "t": "else"
+            }
+        ],
+        "checkall": "false",
+        "repair": false,
+        "outputs": 2,
+        "x": 1130,
+        "y": 220,
+        "wires": [
+            [
+                
+            ],
+            [
+                "bd9d2bb2e3a2b750"
+            ]
+        ]
+    },
+    {
+        "id": "bd9d2bb2e3a2b750",
+        "type": "function",
+        "z": "571d1030f6c6a086",
+        "name": "Format Alert Email",
+        "func": "const reportText = msg.payload.candidates[0].content.parts[0].text;\nconst formattedReport = reportText.replace(/\\n/g, '<br>');\nconst htmlFooter = `\n    <br><br><hr>\n    <p>View live system dashboard here: <a href=\"https://vrm.victronenergy.com/installations/YOUR_INSTALLATION_ID/dashboard\" target=\"_blank\">Open VRM Portal</a></p>\n`;\nreturn {\n    topic: \"⚠️ Power System Engineering Alert\",\n    payload: reportText + \"\\n\\n--- \\nView VRM: https://vrm.victronenergy.com/installations/YOUR_INSTALLATION_ID/dashboard\",\n    html: formattedReport + htmlFooter\n};",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1340,
+        "y": 220,
+        "wires": [
+            [
+                "onboard_email_node"
+            ]
+        ]
+    },
+    {
+        "id": "76a5bb4ab863c583",
+        "type": "comment",
+        "z": "571d1030f6c6a086",
+        "name": "Pull Victron logs and query Gemini for daily health check",
+        "info": "",
+        "x": 270,
+        "y": 40,
+        "wires": []
+    },
+    {
+        "id": "1fe3fbfa788301f7",
+        "type": "global-config",
+        "env": [],
+        "modules": {
+            "node-red-node-email": "5.1.0"
+        }
+    }
+]
