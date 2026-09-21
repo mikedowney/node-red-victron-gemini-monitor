@@ -11,14 +11,17 @@ This workflow automates that process:
 2. **AI-Powered Engineering Audit:** Compiles the logs and runs them through Google's Gemini AI using strict system-specific rules and baseline tolerances.
 3. **Smart Filtering:** If everything is operating safely, the AI replies with `NOMINAL` and the flow remains quiet. If an anomaly is detected, it formats a rich HTML email report with direct links to your VRM portal and local dashboards.
 
+### Flow Architecture
+![Node-RED Flow Overview](image.png)[cite: 3]
+
 ---
 
 ## How It Works
 
-* **Trigger:** A cron inject node fires every day at 6:00 AM.
-* **API Requests:** Sequential HTTP request nodes gather JSON payloads from your Victron VRM installation endpoints.
-* **Prompt Assembly:** A JavaScript function node injects current timestamps and raw datasets into a heavily tuned system prompt defining expected baseline behaviors (such as lithium state-of-charge tracking, solar wake-up voltage thresholds, and shore-power oscillations).
-* **Evaluation & Delivery:** Gemini evaluates the snapshot. A switch node filters out routine `NOMINAL` responses, while alerts trigger an email node to dispatch structured insights straight to your inbox or satellite link.
+* **Trigger:** A cron inject node fires every day at 6:00 AM[cite: 3].
+* **API Requests:** Sequential HTTP request nodes gather JSON payloads from your Victron VRM installation endpoints (Fetch Diagnostics, 24H Stats, and Alarm Settings)[cite: 3].
+* **Prompt Assembly:** A JavaScript function node injects current timestamps and raw datasets into a heavily tuned system prompt defining expected baseline behaviors[cite: 3].
+* **Evaluation & Delivery:** Gemini evaluates the snapshot. A switch node filters out routine `NOMINAL` responses, while alerts trigger an email node to dispatch structured insights straight to your inbox[cite: 3].
 
 ---
 
